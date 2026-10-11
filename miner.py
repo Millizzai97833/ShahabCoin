@@ -2,17 +2,22 @@
 import argparse
 
 from blockchain import Blockchain
+from storage import load_chain, save_chain
 
 
-def mine_blocks(miner_address="demo-miner", count=1):
-    """Mine blocks locally for the ShahabCoin prototype."""
+def mine_blocks(
+    miner_address="demo-miner",
+    count=1,
+    storage_path=None,
+):
+    """Mine blocks locally, optionally loading and saving a chain."""
     if not isinstance(miner_address, str) or not miner_address.strip():
         raise ValueError("Miner address cannot be empty")
 
     if type(count) is not int or count < 1:
         raise ValueError("Block count must be a positive integer")
 
-    chain = Blockchain()
+    chain = load_chain(storage_path) if storage_path else Blockchain()
     mined_blocks = []
 
     for _ in range(count):
@@ -21,6 +26,9 @@ def mine_blocks(miner_address="demo-miner", count=1):
 
     if not chain.is_valid():
         raise RuntimeError("Blockchain validation failed")
+
+    if storage_path:
+        save_chain(chain, storage_path)
 
     return chain, mined_blocks
 
@@ -38,16 +46,25 @@ def main():
         "--blocks",
         type=int,
         default=1,
-        help="Number of blocks to mine (default: 1)",
+        help="Number of blocks to mine",
+    )
+    parser.add_argument(
+        "--file",
+        default="shahabcoin_chain.json",
+        help="Path to the saved blockchain JSON file",
     )
     args = parser.parse_args()
 
     try:
-        chain, blocks = mine_blocks(args.address, args.blocks)
-    except (ValueError, RuntimeError) as error:
+        chain, blocks = mine_blocks(
+            args.address,
+            args.blocks,
+            args.file,
+        )
+    except (ValueError, RuntimeError, OSError) as error:
         parser.error(str(error))
 
-    print("=== ShahabCoin Test Miner ===")
+    print("=== ShahabCoin Persistent Test Miner ===")
     print("Miner:", args.address)
 
     for block in blocks:
@@ -63,11 +80,13 @@ def main():
         print("Block hash:", block["hash"])
 
     print()
-    print("Blocks in local chain:", len(chain.chain) - 1)
+    print("Total blocks after genesis:", len(chain.chain) - 1)
     print("Recorded mining rewards:", chain.issued_supply(), "SHC")
     print("Blockchain valid:", chain.is_valid())
+    print("Saved to:", args.file)
     print("Simulation only: no real coins or money were created.")
 
 
 if __name__ == "__main__":
     main()
+    
