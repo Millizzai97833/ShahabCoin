@@ -6,13 +6,15 @@ import time
 MAX_SUPPLY = 21_000_000
 TARGET_BLOCK_SECONDS = 150
 
+# Educational difficulty: each block hash must start with two zeros.
+DIFFICULTY = 2
+
 
 def hash_block(block):
-    """Return the SHA-256 hash of a block's contents."""
-    encoded = json.dumps(
+    data = json.dumps(
         block, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+    return hashlib.sha256(data).hexdigest()
 
 
 def make_genesis_block():
@@ -33,7 +35,6 @@ class Blockchain:
 
     def add_block(self, transactions):
         previous = self.chain[-1]
-
         block = {
             "index": len(self.chain),
             "timestamp": int(time.time()),
@@ -41,7 +42,16 @@ class Blockchain:
             "previous_hash": previous["hash"],
             "nonce": 0,
         }
-        block["hash"] = hash_block(block)
+
+        # Proof of Work: search for a hash with the required prefix.
+        target = "0" * DIFFICULTY
+        while True:
+            block_hash = hash_block(block)
+            if block_hash.startswith(target):
+                block["hash"] = block_hash
+                break
+            block["nonce"] += 1
+
         self.chain.append(block)
         return block
 
@@ -64,8 +74,9 @@ class Blockchain:
 
                 if block["index"] != index:
                     return False
-
                 if block["previous_hash"] != previous["hash"]:
+                    return False
+                if not block["hash"].startswith("0" * DIFFICULTY):
                     return False
 
         return True
